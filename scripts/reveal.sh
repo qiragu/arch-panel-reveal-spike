@@ -27,6 +27,7 @@ echo "sealed comments found: $(echo "$sealed" | jq length)"
 body_at_deadline() {
   local id="$1" node="$2" updated="$3" body="$4"
   if [ "$(epoch "$updated")" -le "$deadline" ]; then printf '%s' "$body"; return; fi
+  if [ "$(epoch "$5")" -gt "$deadline" ]; then printf '%s' "$body"; return; fi  # created late: no deadline version exists
   gh api graphql -f id="$node" -f query='query($id:ID!){node(id:$id){... on IssueComment{userContentEdits(first:50){nodes{editedAt diff}}}}}' \
     | jq -r --argjson d "$deadline" '[.data.node.userContentEdits.nodes[] | select((.editedAt|fromdateiso8601) <= $d)] | sort_by(.editedAt) | last | .diff // ""'
 }
@@ -49,8 +50,8 @@ for key in $keys; do
     urls="$urls $(echo "$c" | jq -r .html_url)"
     ce=$(epoch "$created"); [ "$ce" -gt "$last_created" ] && last_created=$ce
     [ "$ce" -gt "$deadline" ] && notes+=("LATE: part $((i + 1)) posted $created, after the deadline")
-    [ "$(epoch "$updated")" -gt "$deadline" ] && notes+=("EDITED AFTER DEADLINE: part $((i + 1)) updated $updated; used the version at the deadline")
-    b=$(body_at_deadline "$id" "$node" "$updated" "$(echo "$c" | jq -r .body)")
+    [ "$ce" -le "$deadline" ] && [ "$(epoch "$updated")" -gt "$deadline" ] && notes+=("EDITED AFTER DEADLINE: part $((i + 1)) updated $updated; used the version at the deadline")
+    b=$(body_at_deadline "$id" "$node" "$updated" "$(echo "$c" | jq -r .body)" "$created")
     chunk=$(printf '%s\n' "$b" | awk '/^```$/{f=!f; next} f')
     armor="$armor$chunk"$'\n'
   done
