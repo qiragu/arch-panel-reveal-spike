@@ -1,0 +1,31 @@
+name: intake
+on:
+  issue_comment:
+    types: [created, edited, deleted]
+permissions:
+  contents: write
+concurrency:
+  group: intake
+  cancel-in-progress: false
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: intake
+      - name: Record the event
+        env:
+          EVENT: ${{ github.event.action }}
+          SENDER: ${{ github.event.sender.login }}
+          CID: ${{ github.event.comment.id }}
+          AUTHOR: ${{ github.event.comment.user.login }}
+          CREATED: ${{ github.event.comment.created_at }}
+          UPDATED: ${{ github.event.comment.updated_at }}
+          BODY: ${{ github.event.comment.body }}
+        run: |
+          fp=$(printf '%s' "$BODY" | sha256sum | cut -d' ' -f1)
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) event=$EVENT comment=$CID author=$AUTHOR sender=$SENDER created=$CREATED updated=$UPDATED body_sha256=$fp" >> intake.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add intake.log && git commit -q -m "intake: $EVENT $CID by $SENDER" && git push -q origin HEAD:intake
