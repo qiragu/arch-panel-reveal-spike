@@ -17,7 +17,7 @@ login=$(sed -n 's/^author: *//p' "$plain")
 bot=$(sed -n 's/^bot: *//p' "$plain")
 
 armor=$(mktemp)
-"$TLE" --encrypt --chain "$chain" --round "$round" --armor -o "$armor" "$plain"
+"$TLE" --encrypt ${FORCE:+--force} --chain "$chain" --round "$round" --armor -o "$armor" "$plain"
 
 total=$(wc -l < "$armor" | tr -d ' ')
 if [ "$split" -le 0 ] || [ "$split" -ge "$total" ]; then split="$total"; fi
