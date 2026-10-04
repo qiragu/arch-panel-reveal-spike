@@ -1,0 +1,35 @@
+name: reveal
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+concurrency:
+  group: reveal
+  cancel-in-progress: false
+jobs:
+  reveal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.22"
+          cache: false
+      - name: Install tle (tlock v1.2.0, pinned)
+        run: go install github.com/drand/tlock/cmd/tle@v1.2.0 && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Reveal
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/reveal.sh
+      - name: Save the record
+        run: |
+          if [ -n "$(git status --porcelain record)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add record && git commit -m "Reveal: record round 1" && git push
+          fi
